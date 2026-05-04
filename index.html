@@ -176,6 +176,44 @@
       color: #bbb;
     }
 
+    .todo-edit-input {
+      flex: 1;
+      border: 2px solid #667eea;
+      border-radius: 8px;
+      padding: 4px 10px;
+      font-size: 15px;
+      font-family: inherit;
+      outline: none;
+      color: #333;
+    }
+
+    #priority-btn {
+      border: none;
+      border-radius: 10px;
+      padding: 10px 13px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      color: #fff;
+      font-family: inherit;
+      transition: opacity 0.2s, transform 0.1s;
+      white-space: nowrap;
+    }
+
+    #priority-btn:hover { opacity: 0.85; }
+    #priority-btn:active { transform: scale(0.95); }
+
+    .priority-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      cursor: pointer;
+      transition: transform 0.15s;
+    }
+
+    .priority-dot:hover { transform: scale(1.4); }
+
     .todo-delete {
       background: none;
       border: none;
@@ -226,6 +264,7 @@
 
     <div class="input-area">
       <input id="new-todo" type="text" placeholder="添加新的待办事项..." maxlength="100" />
+      <button id="priority-btn" title="点击切换优先级">中</button>
       <button id="add-btn" title="添加">+</button>
     </div>
 
@@ -246,6 +285,17 @@
   <script>
     let todos = JSON.parse(localStorage.getItem('todos') || '[]');
     let filter = 'all';
+
+    const PRIORITY_COLORS = { high: '#f56565', medium: '#ed8936', low: '#48bb78' };
+    const PRIORITY_LABELS = { high: '高', medium: '中', low: '低' };
+    const PRIORITY_CYCLE  = { high: 'medium', medium: 'low', low: 'high' };
+    let currentPriority = 'medium';
+
+    function updatePriorityBtn() {
+      const btn = document.getElementById('priority-btn');
+      btn.textContent = PRIORITY_LABELS[currentPriority];
+      btn.style.background = PRIORITY_COLORS[currentPriority];
+    }
 
     function save() {
       localStorage.setItem('todos', JSON.stringify(todos));
@@ -276,13 +326,16 @@
         return;
       }
 
-      list.innerHTML = filtered.map(t => `
+      list.innerHTML = filtered.map(t => {
+        const p = t.priority || 'medium';
+        return `
         <div class="todo-item" data-id="${t.id}">
           <div class="todo-check ${t.done ? 'done' : ''}" onclick="toggle('${t.id}')"></div>
-          <div class="todo-text ${t.done ? 'done' : ''}" onclick="toggle('${t.id}')">${escHtml(t.text)}</div>
+          <div class="priority-dot" style="background:${PRIORITY_COLORS[p]}" onclick="changePriority('${t.id}')" title="${PRIORITY_LABELS[p]}优先级，点击切换"></div>
+          <div class="todo-text ${t.done ? 'done' : ''}" onclick="toggle('${t.id}')" ondblclick="startEdit('${t.id}')" title="双击编辑">${escHtml(t.text)}</div>
           <button class="todo-delete" onclick="remove('${t.id}')" title="删除">×</button>
-        </div>
-      `).join('');
+        </div>`;
+      }).join('');
     }
 
     function escHtml(str) {
@@ -293,7 +346,7 @@
       const input = document.getElementById('new-todo');
       const text = input.value.trim();
       if (!text) return;
-      todos.unshift({ id: Date.now().toString(), text, done: false });
+      todos.unshift({ id: Date.now().toString(), text, done: false, priority: currentPriority });
       input.value = '';
       save();
       render();
@@ -309,6 +362,46 @@
       save();
       render();
     }
+
+    function changePriority(id) {
+      const t = todos.find(t => t.id === id);
+      if (!t) return;
+      t.priority = PRIORITY_CYCLE[t.priority || 'medium'];
+      save();
+      render();
+    }
+
+    function startEdit(id) {
+      const item = document.querySelector(`.todo-item[data-id="${id}"]`);
+      const textEl = item.querySelector('.todo-text');
+      const t = todos.find(t => t.id === id);
+      if (!t || t.done) return;
+
+      const input = document.createElement('input');
+      input.className = 'todo-edit-input';
+      input.value = t.text;
+      textEl.replaceWith(input);
+      input.focus();
+      input.select();
+
+      function commit() {
+        const val = input.value.trim();
+        if (val) t.text = val;
+        save();
+        render();
+      }
+
+      input.addEventListener('blur', commit);
+      input.addEventListener('keydown', e => {
+        if (e.key === 'Enter') input.blur();
+        if (e.key === 'Escape') { input.value = t.text; input.blur(); }
+      });
+    }
+
+    document.getElementById('priority-btn').addEventListener('click', () => {
+      currentPriority = PRIORITY_CYCLE[currentPriority];
+      updatePriorityBtn();
+    });
 
     document.getElementById('add-btn').addEventListener('click', addTodo);
     document.getElementById('new-todo').addEventListener('keydown', e => {
@@ -330,6 +423,7 @@
       render();
     });
 
+    updatePriorityBtn();
     render();
   </script>
 </body>
