@@ -35,6 +35,23 @@
     .header h1 { font-size: 24px; font-weight: 700; margin-bottom: 4px; }
     .header .subtitle { font-size: 13px; opacity: 0.8; }
 
+    .weather {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 10px;
+      background: rgba(255,255,255,0.15);
+      border-radius: 10px;
+      padding: 8px 14px;
+      font-size: 13px;
+      min-height: 36px;
+    }
+
+    .weather-icon { font-size: 20px; line-height: 1; }
+    .weather-temp { font-size: 18px; font-weight: 700; }
+    .weather-desc { opacity: 0.9; }
+    .weather-location { opacity: 0.7; margin-left: auto; font-size: 12px; }
+
     .stats {
       display: flex;
       gap: 16px;
@@ -255,6 +272,9 @@
     <div class="header">
       <h1>我的待办事项</h1>
       <div class="subtitle">保持专注，逐步完成</div>
+      <div class="weather" id="weather-bar">
+        <span class="weather-desc" style="opacity:0.7">正在获取天气...</span>
+      </div>
       <div class="stats">
         <div class="stat"><span id="stat-total">0</span>全部</div>
         <div class="stat"><span id="stat-active">0</span>待完成</div>
@@ -417,6 +437,54 @@
       });
     });
 
+    const WEATHER_ICONS = {
+      113: '☀️', 116: '⛅', 119: '☁️', 122: '☁️',
+      143: '🌫️', 176: '🌦️', 179: '🌨️', 182: '🌧️', 185: '🌧️',
+      200: '⛈️', 227: '🌨️', 230: '❄️', 248: '🌫️', 260: '🌫️',
+      263: '🌦️', 266: '🌧️', 281: '🌧️', 284: '🌧️', 293: '🌦️',
+      296: '🌧️', 299: '🌧️', 302: '🌧️', 305: '🌧️', 308: '🌧️',
+      311: '🌧️', 314: '🌧️', 317: '🌨️', 320: '🌨️', 323: '🌨️',
+      326: '🌨️', 329: '❄️', 332: '❄️', 335: '❄️', 338: '❄️',
+      350: '🌧️', 353: '🌦️', 356: '🌧️', 359: '🌧️', 362: '🌨️',
+      365: '🌨️', 368: '🌨️', 371: '❄️', 374: '🌨️', 377: '🌨️',
+      386: '⛈️', 389: '⛈️', 392: '⛈️', 395: '❄️'
+    };
+
+    function initWeather() {
+      const bar = document.getElementById('weather-bar');
+      if (!navigator.geolocation) {
+        bar.innerHTML = '<span class="weather-desc">浏览器不支持定位</span>';
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        pos => fetchWeather(pos.coords.latitude, pos.coords.longitude),
+        () => {
+          bar.innerHTML = '<span class="weather-desc">定位失败，无法获取天气</span>';
+        }
+      );
+    }
+
+    async function fetchWeather(lat, lon) {
+      const bar = document.getElementById('weather-bar');
+      try {
+        const res = await fetch(`https://wttr.in/${lat},${lon}?format=j1`);
+        const data = await res.json();
+        const cur = data.current_condition[0];
+        const code = parseInt(cur.weatherCode);
+        const icon = WEATHER_ICONS[code] || '🌡️';
+        const temp = cur.temp_C;
+        const desc = cur.lang_zh ? cur.lang_zh[0].value : cur.weatherDesc[0].value;
+        const area = data.nearest_area[0].areaName[0].value;
+        bar.innerHTML = `
+          <span class="weather-icon">${icon}</span>
+          <span class="weather-temp">${temp}°C</span>
+          <span class="weather-desc">${desc}</span>
+          <span class="weather-location">📍${area}</span>`;
+      } catch {
+        bar.innerHTML = '<span class="weather-desc">天气获取失败</span>';
+      }
+    }
+
     document.getElementById('clear-done').addEventListener('click', () => {
       todos = todos.filter(t => !t.done);
       save();
@@ -425,6 +493,7 @@
 
     updatePriorityBtn();
     render();
+    initWeather();
   </script>
 </body>
 </html>
